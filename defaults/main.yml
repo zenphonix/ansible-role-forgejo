@@ -17,7 +17,7 @@ forgejo_config_path: "{{ forgejo_base_path }}/config"
 forgejo_data_path: "{{ forgejo_base_path }}/data"
 
 # renovate: datasource=docker depName=codeberg.org/forgejo/forgejo versioning=semver
-forgejo_version: 13.0.3
+forgejo_version: 13.0.4
 
 forgejo_uid: ""
 forgejo_gid: ""
@@ -132,12 +132,12 @@ forgejo_container_labels_traefik_additional_response_headers_custom: {}
 # To add your own custom labels, use `forgejo_container_labels_additional_labels_custom`
 #
 # Example:
-# forgejo_container_labels_additional_labels_custom: |
-#   my.label=1
-#   another.label="here"
-forgejo_container_labels_additional_labels: "{{ forgejo_container_labels_additional_labels_auto | combine(forgejo_container_labels_additional_labels_custom) }}"
-forgejo_container_labels_additional_labels_auto: {}
-forgejo_container_labels_additional_labels_custom: {}
+# forgejo_container_labels_additional_labels_custom:
+#   - my.label=1
+#   - another.label="here"
+forgejo_container_labels_additional_labels: "{{ forgejo_container_labels_additional_labels_auto + forgejo_container_labels_additional_labels_custom }}"
+forgejo_container_labels_additional_labels_auto: []
+forgejo_container_labels_additional_labels_custom: []
 
 # A list of extra arguments to pass to the container (`docker create` command)
 forgejo_container_extra_arguments: "{{ forgejo_container_extra_arguments_auto + forgejo_container_extra_arguments_custom }}"

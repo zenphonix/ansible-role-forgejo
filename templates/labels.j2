@@ -72,4 +72,6 @@ traefik.tcp.services.{{ forgejo_identifier }}.loadbalancer.server.port={{ forgej
 
 {% endif %}
 
-{{ forgejo_container_labels_additional_labels }}
+{% for arg in forgejo_container_labels_additional_labels %}
+{{ arg }}
+{% endfor %}
