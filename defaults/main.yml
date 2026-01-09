@@ -273,6 +273,10 @@ forgejo_config_service_enable_notify_email: "{{ forgejo_config_mailer_enabled }}
 # Disables registration, after which only admins can create accounts for users.
 forgejo_config_service_disable_registration: true
 
+# Controls the `FORGEJO__service__REGISTER_MANUAL_CONFIRM` environment variable.
+# Disables registration, after which only admins can create accounts for users.
+forgejo_config_service_register_manual_confirm: false
+
 # Controls the `FORGEJO__service__ENABLE_OPENID_SIGNIN` environment variable.
 # Enables OpenID sign-in.
 # See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#openid-openid
