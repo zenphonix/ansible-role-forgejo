@@ -21,9 +21,9 @@
   ansible.builtin.template:
     src: "{{ role_path }}/templates/{{ item }}.j2"
     dest: "{{ forgejo_base_path }}/{{ item }}"
+    mode: "0640"
     owner: "{{ forgejo_uid }}"
     group: "{{ forgejo_gid }}"
-    mode: "0640"
   with_items:
     - env
     - labels

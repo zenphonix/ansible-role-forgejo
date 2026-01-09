@@ -16,8 +16,9 @@
     - { "old": "forgejo_data_dir_path", "new": "forgejo_data_path" }
     - { "old": "forgejo_config_dir_path", "new": "forgejo_config_path" }
     - { "old": "forgejo_http_bind_port", "new": "forgejo_container_http_host_bind_port" }
+    - { "old": "forgejo_ssh_port", "new": "forgejo_container_ssh_port" }
     - { "old": "forgejo_ssh_bind_port", "new": "forgejo_container_ssh_host_bind_port" }
-    - { "old": "forgejo_config_server_ssh_listen_port", "new": "forgejo_container_ssh_port" }
+    - { "old": "forgejo_config_server_ssh_port", "new": "forgejo_container_ssh_port" }
     - { "old": "forgejo_config_database_type", "new": "forgejo_database_type" }
     - { "old": "forgejo_config_database_hostname", "new": "<Replace with forgejo_database_mysql_hostname or forgejo_database_postgres_hostname>" }
     - { "old": "forgejo_config_database_port", "new": "<Replace with forgejo_database_mysql_port or forgejo_database_postgres_port>" }
@@ -41,9 +42,11 @@
       You need to define a required configuration setting (`{{ item.name }}`) for using this role.
   when: "item.when | bool and lookup('vars', item.name, default='') | string | length == 0"
   with_items:
-    - { "name": "forgejo_hostname", when: true }
     - { "name": "forgejo_uid", when: true }
     - { "name": "forgejo_gid", when: true }
+    - { "name": "forgejo_hostname", when: true }
+    - { "name": "forgejo_path_prefix", when: true }
+    - { "name": "forgejo_container_network", when: true }
     - "name": "forgejo_container_labels_traefik_compression_middleware_name"
       when: "{{ forgejo_container_labels_traefik_compression_middleware_enabled }}"
 

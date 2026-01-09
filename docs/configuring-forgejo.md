@@ -90,7 +90,7 @@ We recommend you to move your regular SSH server to another port, and stick to t
 If you wish to have the instance listen to another port, add the following configuration to your `vars.yml` file and adjust the port as you see fit.
 
 ```yaml
-forgejo_ssh_port: 222
+forgejo_container_ssh_port: 222
 ```
 
 ### Configuring cache (optional)

@@ -1,0 +1,44 @@
+- name: Fail if required OAuth settings not defined
+  ansible.builtin.fail:
+    msg: >-
+      You need to define a required configuration setting (`{{ item }}`).
+  when: "lookup('vars', item, default='') | string | length == 0"
+  with_items:
+    - forgejo_oidc_name
+    - forgejo_oidc_client_id
+    - forgejo_oidc_client_secret
+    - forgejo_oidc_auto_discover_url
+
+- name: Ensure Forgejo service is started
+  ansible.builtin.service:
+    name: "{{ forgejo_identifier }}"
+    state: started
+    daemon_reload: true
+  register: forgejo_start
+
+- name: Wait a while, so that Nextcloud can manage to start
+  ansible.builtin.pause:
+    seconds: 7
+  when: forgejo_start.changed | bool
+
+- name: Add OAuth provider to Forgejo
+  ansible.builtin.shell: |
+    docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth add-oauth \
+        --provider=openidConnect \
+        --name={{ forgejo_oidc_name }} \
+        --key={{ forgejo_oidc_client_id }} \
+        --secret={{ forgejo_oidc_client_secret }} \
+        --auto-discover-url={{ forgejo_oidc_auto_discover_url }} \
+        {% if forgejo_oidc_icon_url %} --icon-url={{ forgejo_oidc_icon_url }} \ {% endif %}
+        {% if forgejo_oidc_scopes %} --scopes="{{ forgejo_oidc_scopes }}" \ {% endif %}
+        {% if forgejo_oidc_required_claim_name %} --required-claim-name={{ forgejo_oidc_required_claim_name }} \ {% endif %}
+        {% if forgejo_oidc_required_claim_value %} --required-claim-value={{ forgejo_oidc_required_claim_value }} \ {% endif %}
+        {% if forgejo_oidc_group_claim_name %} --group-claim-name={{ forgejo_oidc_group_claim_name }} \ {% endif %} 
+        {% if forgejo_oidc_admin_group %} --admin-group={{ forgejo_oidc_admin_group }} \ {% endif %}
+        {% if forgejo_oidc_restricted_group %} --restricted-group={{ forgejo_oidc_restricted_group }} \ {% endif %}
+        {% if forgejo_oidc_group_team_map %} --group-team-map="{{ forgejo_oidc_group_team_map }}" \ {% endif %}
+        --group-team-map-removal={{ forgejo_oidc_group_team_map_removal }} \
+        --allow-username-change={{ forgejo_oidc_allow_username_change }} \
+        --skip-local-2fa={{ forgejo_oidc_skip_local_2fa }}
+  failed_when: false
+  register: forgejo_oauth
