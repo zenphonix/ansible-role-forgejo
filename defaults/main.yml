@@ -273,8 +273,12 @@ forgejo_config_service_enable_notify_email: "{{ forgejo_config_mailer_enabled }}
 # Disables registration, after which only admins can create accounts for users.
 forgejo_config_service_disable_registration: true
 
+# Controls the `FORGEJO__service__REGISTER_EMAIL_CONFIRM` environment variable.
+# Enable this to ask for mail confirmation of registration. Requires Mailer to be enabled.
+forgejo_config_service_register_email_confirm: false
+
 # Controls the `FORGEJO__service__REGISTER_MANUAL_CONFIRM` environment variable.
-# Disables registration, after which only admins can create accounts for users.
+# Enable this to manually confirm new registrations. Requires REGISTER_EMAIL_CONFIRM to be disabled.
 forgejo_config_service_register_manual_confirm: false
 
 # Controls the `FORGEJO__service__ENABLE_OPENID_SIGNIN` environment variable.
