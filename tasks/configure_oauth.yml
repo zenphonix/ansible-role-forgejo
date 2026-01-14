@@ -12,7 +12,7 @@
       You need to define a required configuration setting (`{{ item }}`).
   when: "lookup('vars', item, default='') | string | length == 0"
   with_items:
-    - forgejo_oidc_name
+    - forgejo_oidc_provider_name
     - forgejo_oidc_client_id
     - forgejo_oidc_client_secret
     - forgejo_oidc_auto_discover_url
@@ -33,7 +33,7 @@
   ansible.builtin.shell: |
     docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth add-oauth \
         --provider=openidConnect \
-        --name="{{ forgejo_oidc_name }}" \
+        --name="{{ forgejo_oidc_provider_name }}" \
         --key="{{ forgejo_oidc_client_id }}" \
         --secret="{{ forgejo_oidc_client_secret }}" \
         --auto-discover-url="{{ forgejo_oidc_auto_discover_url }}" \
