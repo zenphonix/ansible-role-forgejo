@@ -236,7 +236,7 @@ forgejo_config_mailer_passwd: ""
 # OAuth2 configuration (with OpenID Connect). See https://forgejo.org/docs/latest/admin/command-line/#admin-auth-add-oauth for details
 forgejo_oidc_enabled: false
 
-forgejo_oidc_name: ""
+forgejo_oidc_provider_name: ""
 forgejo_oidc_client_id: ""
 forgejo_oidc_client_secret: ""
 forgejo_oidc_auto_discover_url: ""
@@ -260,7 +260,7 @@ forgejo_oidc_skip_local_2fa: false
 # The name of the client
 forgejo_oidc_client_name: "{{ forgejo_identifier }}"
 # An array of redirect uris
-forgejo_oidc_redirect_uris: "https://{{ forgejo_hostname }}/user/oauth2/{{ forgejo_oidc_name }}/callback"
+forgejo_oidc_redirect_uris: "https://{{ forgejo_hostname }}/user/oauth2/{{ forgejo_oidc_provider_name }}/callback"
 # The signing algorithm to use. Can be ´RS256´ or ´HS256´.
 forgejo_oidc_algorithm: "RS256"
 # The flow type to use for authentication. Can be ´code´ or ´code id_token´.
