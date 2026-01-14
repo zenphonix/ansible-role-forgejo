@@ -234,7 +234,7 @@ forgejo_config_mailer_user: ""
 forgejo_config_mailer_passwd: ""
 
 # OAuth2 configuration (with OpenID Connect). See https://forgejo.org/docs/latest/admin/command-line/#admin-auth-add-oauth for details
-forgejo_oidc_enabled: false
+forgejo_oidc_client_enabled: false
 
 forgejo_oidc_provider_name: ""
 forgejo_oidc_client_id: ""
