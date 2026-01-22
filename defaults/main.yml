@@ -275,6 +275,8 @@ forgejo_oidc_token_type: "opaque"
 forgejo_oidc_email_regex: ""
 # The resource URL for this client (RFC 9728). Must be a valid URL with max length 512 characters.
 forgejo_oidc_resource_url: null
+# Dynamic Client Registration (RFC 7591). Disabled by default. Must be enabled in settings.
+forgejo_oidc_dcr: false
 
 forgejo_config_root_url: "{{ forgejo_scheme }}://{{ forgejo_hostname }}{{ forgejo_path_prefix }}"
 
