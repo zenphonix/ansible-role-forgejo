@@ -17,11 +17,12 @@ forgejo_config_path: "{{ forgejo_base_path }}/config"
 forgejo_data_path: "{{ forgejo_base_path }}/data"
 
 # renovate: datasource=docker depName=codeberg.org/forgejo/forgejo versioning=semver
-forgejo_version: 13.0.4
+forgejo_version: 14.0.1
 
 forgejo_uid: ""
 forgejo_gid: ""
 
+# The scheme used for serving Forgejo.
 forgejo_scheme: https
 
 # The hostname at which Forgejo is served.
@@ -44,27 +45,24 @@ forgejo_container_image_self_build_repo_version: "{{ 'v' + forgejo_version if fo
 forgejo_container_image_self_build_src_files_path: "{{ forgejo_base_path }}/docker-src"
 forgejo_container_image_self_build_environment_buildplatform: linux/amd64
 
-# Controls whether the container exposes its HTTP port (tcp/3000 in the container).
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+forgejo_container_network: "{{ forgejo_identifier }}"
+
+# Specify how the container publishes its HTTP port (as defined by `forgejo_container_http_port`).
 #
 # Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
 forgejo_container_http_host_bind_port: ""
 
-# Controls whether the container exposes its SSH port (tcp/22 in the container).
+# Specify how the container publishes its SSH port (as defined by `forgejo_container_ssh_port`).
 #
 # Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
 forgejo_container_ssh_host_bind_port: "{{ forgejo_container_ssh_port }}"
-
-# The base container network. It will be auto-created by this role if it doesn't exist already.
-forgejo_container_network: "{{ forgejo_identifier }}"
 
 # The port number in the container
 forgejo_container_http_port: 3000
 
 # The port number in the container
 forgejo_container_ssh_port: 22
-
-# The size of the container's tmpfs volume
-forgejo_container_tmpfs_size_mb: 128
 
 # A list of additional container networks that the container would be connected to.
 # The playbook does not create these networks, so make sure they already exist.
@@ -76,7 +74,7 @@ forgejo_container_additional_networks_custom: []
 # forgejo_container_labels_traefik_enabled controls whether labels to assist a Traefik reverse-proxy will be attached to the container.
 # See `../templates/labels.j2` for details.
 #
-# To inject your own other container labels, see `forgejo_container_labels_additional_labels`.
+# To inject your own other container labels, see `forgejo_container_labels_additional_labels_custom`.
 forgejo_container_labels_traefik_enabled: true
 forgejo_container_labels_traefik_docker_network: ""
 forgejo_container_labels_traefik_hostname: "{{ forgejo_hostname }}"
@@ -91,7 +89,7 @@ forgejo_container_labels_traefik_tls_certResolver: default  # noqa var-naming
 # forgejo_container_labels_traefik_tcp_enabled controls whether labels to assist a Traefik reverse-proxy for SSH connections will be attached to the container.
 # See `../templates/labels.j2` for details.
 #
-# To inject your own other container labels, see `forgejo_container_labels_additional_labels`.
+# To inject your own other container labels, see `forgejo_container_labels_additional_labels_custom`.
 forgejo_container_labels_traefik_tcp_enabled: true
 forgejo_container_labels_traefik_tcp_docker_network: "{{ forgejo_container_network }}"
 forgejo_container_labels_traefik_tcp_rule: "HostSNI(`*`)"
@@ -138,6 +136,9 @@ forgejo_container_labels_traefik_additional_response_headers_custom: {}
 forgejo_container_labels_additional_labels: "{{ forgejo_container_labels_additional_labels_auto + forgejo_container_labels_additional_labels_custom }}"
 forgejo_container_labels_additional_labels_auto: []
 forgejo_container_labels_additional_labels_custom: []
+
+# Specify the size of the container's tmpfs volume
+forgejo_container_tmpfs_tmp_size: 128m
 
 # A list of extra arguments to pass to the container (`docker create` command)
 forgejo_container_extra_arguments: "{{ forgejo_container_extra_arguments_auto + forgejo_container_extra_arguments_custom }}"
@@ -292,7 +293,7 @@ forgejo_config_service_enable_openid_signin: true
 forgejo_config_service_enable_openid_signup: "{{ not forgejo_config_service_disable_registration }}"
 
 # Controls the `FORGEJO__oauth2_client__ENABLE_AUTO_REGISTRATION` environment variable.
-# Enables automatical user accounts creation for new OAuth2 users.
+# Enables automatic user accounts creation for new OAuth2 users.
 # See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#oauth2-client-oauth2_client
 forgejo_config_oauth2_client_enable_auto_registration: false
 
