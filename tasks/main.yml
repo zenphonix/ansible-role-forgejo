@@ -27,9 +27,9 @@
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"
 
 - name: Perform Forgejo OAuth2 configuration tasks
-  when: forgejo_enabled | bool and forgejo_oidc_client_enabled | bool
+  when: forgejo_enabled | bool
   tags:
     - configure-oauth-forgejo
   block:
-    - name: Configure OAuth2 provider for Forgejo
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/configure_oauth.yml"
+    - name: Configure OAuth2 providers for Forgejo
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/oauth.yml"
