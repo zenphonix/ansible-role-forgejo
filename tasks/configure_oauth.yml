@@ -42,3 +42,10 @@
         --skip-local-2fa={{ forgejo_oidc_skip_local_2fa }}
   failed_when: false
   register: forgejo_oauth
+
+- name: Ensure Forgejo service is restarted
+  ansible.builtin.service:
+    name: "{{ forgejo_identifier }}"
+    state: restarted
+  register: forgejo_restart
+
