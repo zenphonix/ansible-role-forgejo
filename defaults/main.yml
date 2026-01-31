@@ -17,7 +17,7 @@ forgejo_config_path: "{{ forgejo_base_path }}/config"
 forgejo_data_path: "{{ forgejo_base_path }}/data"
 
 # renovate: datasource=docker depName=codeberg.org/forgejo/forgejo versioning=semver
-forgejo_version: 14.0.1
+forgejo_version: 14.0.2
 
 forgejo_uid: ""
 forgejo_gid: ""
@@ -45,27 +45,24 @@ forgejo_container_image_self_build_repo_version: "{{ 'v' + forgejo_version if fo
 forgejo_container_image_self_build_src_files_path: "{{ forgejo_base_path }}/docker-src"
 forgejo_container_image_self_build_environment_buildplatform: linux/amd64
 
-# Controls whether the container exposes its HTTP port (tcp/3000 in the container).
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+forgejo_container_network: "{{ forgejo_identifier }}"
+
+# Specify how the container publishes its HTTP port (as defined by `forgejo_container_http_port`).
 #
 # Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
 forgejo_container_http_host_bind_port: ""
 
-# Controls whether the container exposes its SSH port (tcp/22 in the container).
+# Specify how the container publishes its SSH port (as defined by `forgejo_container_ssh_port`).
 #
 # Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
 forgejo_container_ssh_host_bind_port: "{{ forgejo_container_ssh_port }}"
-
-# The base container network. It will be auto-created by this role if it doesn't exist already.
-forgejo_container_network: "{{ forgejo_identifier }}"
 
 # The port number in the container
 forgejo_container_http_port: 3000
 
 # The port number in the container
 forgejo_container_ssh_port: 22
-
-# The size of the container's tmpfs volume
-forgejo_container_tmpfs_size_mb: 128
 
 # A list of additional container networks that the container would be connected to.
 # The playbook does not create these networks, so make sure they already exist.
@@ -139,6 +136,9 @@ forgejo_container_labels_traefik_additional_response_headers_custom: {}
 forgejo_container_labels_additional_labels: "{{ forgejo_container_labels_additional_labels_auto + forgejo_container_labels_additional_labels_custom }}"
 forgejo_container_labels_additional_labels_auto: []
 forgejo_container_labels_additional_labels_custom: []
+
+# Specify the size of the container's tmpfs volume
+forgejo_container_tmpfs_tmp_size: 128m
 
 # A list of extra arguments to pass to the container (`docker create` command)
 forgejo_container_extra_arguments: "{{ forgejo_container_extra_arguments_auto + forgejo_container_extra_arguments_custom }}"
@@ -275,9 +275,9 @@ forgejo_oidc_token_type: "opaque"
 forgejo_oidc_email_regex: ""
 # The resource URL for this client (RFC 9728). Must be a valid URL with max length 512 characters.
 forgejo_oidc_resource_url: null
-# Dynamic Client Registration (RFC 7591). Disabled by default. Must be enabled in settings.
-forgejo_oidc_dcr: false
 
+# Environment variables
+#
 forgejo_config_root_url: "{{ forgejo_scheme }}://{{ forgejo_hostname }}{{ forgejo_path_prefix }}"
 
 # Controls the `FORGEJO__server__SSH_LISTEN_PORT` environment variable.

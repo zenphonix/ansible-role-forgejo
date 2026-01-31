@@ -19,6 +19,7 @@
     - { "old": "forgejo_ssh_port", "new": "forgejo_container_ssh_port" }
     - { "old": "forgejo_ssh_bind_port", "new": "forgejo_container_ssh_host_bind_port" }
     - { "old": "forgejo_config_server_ssh_port", "new": "forgejo_container_ssh_port" }
+    - { "old": "forgejo_container_tmpfs_size_mb", "new": "forgejo_container_tmpfs_tmp_size" }
     - { "old": "forgejo_config_database_type", "new": "forgejo_database_type" }
     - { "old": "forgejo_config_database_hostname", "new": "<Replace with forgejo_database_mysql_hostname or forgejo_database_postgres_hostname>" }
     - { "old": "forgejo_config_database_port", "new": "<Replace with forgejo_database_mysql_port or forgejo_database_postgres_port>" }
