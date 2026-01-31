@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2023 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2023 MASH project contributors
+# SPDX-FileCopyrightText: 2026 Timofej Luitle
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -27,9 +28,9 @@
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"
 
 - name: Perform Forgejo OAuth2 configuration tasks
-  when: forgejo_oidc_enabled | bool
+  when: forgejo_enabled | bool
   tags:
     - configure-oauth-forgejo
   block:
-    - name: Configure OAuth2 provider for Forgejo
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/configure_oauth.yml"
+    - name: Configure OAuth2 providers for Forgejo
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/oauth.yml"
