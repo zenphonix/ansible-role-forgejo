@@ -103,3 +103,9 @@
       docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth delete \
           --id={{ forgejo_oauth_provider_id }} \
     register: forgejo_delete_oauth_result
+
+- name: Ensure Forgejo service is restarted
+  ansible.builtin.service:
+    name: "{{ forgejo_identifier }}"
+    state: restarted
+  register: forgejo_restart
