@@ -7,12 +7,14 @@
 
 ---
 - name: Fail if required OAuth settings not defined
+  when:
+    - forgejo_oidc_client_enabled | bool
+    - lookup('vars', item, default='') | string | length == 0
   ansible.builtin.fail:
     msg: >-
       You need to define a required configuration setting (`{{ item }}`).
-  when: "lookup('vars', item, default='') | string | length == 0"
-  with_items:
-    - forgejo_oidc_name
+  loop:
+    - forgejo_oidc_provider_name
     - forgejo_oidc_client_id
     - forgejo_oidc_client_secret
     - forgejo_oidc_auto_discover_url
@@ -25,28 +27,85 @@
   register: forgejo_start
 
 - name: Wait a while, so that Forgejo can manage to start
+  when: forgejo_start.changed | bool
   ansible.builtin.pause:
     seconds: 7
-  when: forgejo_start.changed | bool
 
-- name: Add OAuth provider to Forgejo
-  ansible.builtin.shell: |
-    docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth add-oauth \
-        --provider=openidConnect \
-        --name="{{ forgejo_oidc_name }}" \
-        --key="{{ forgejo_oidc_client_id }}" \
-        --secret="{{ forgejo_oidc_client_secret }}" \
-        --auto-discover-url="{{ forgejo_oidc_auto_discover_url }}" \
-        {% if forgejo_oidc_icon_url %} --icon-url="{{ forgejo_oidc_icon_url }}" \ {% endif %}
-        {% if forgejo_oidc_scopes %} --scopes="{{ forgejo_oidc_scopes }}" \ {% endif %}
-        {% if forgejo_oidc_required_claim_name %} --required-claim-name="{{ forgejo_oidc_required_claim_name }}" \ {% endif %}
-        {% if forgejo_oidc_required_claim_value %} --required-claim-value="{{ forgejo_oidc_required_claim_value }}" \ {% endif %}
-        {% if forgejo_oidc_group_claim_name %} --group-claim-name="{{ forgejo_oidc_group_claim_name }}" \ {% endif %}
-        {% if forgejo_oidc_admin_group %} --admin-group="{{ forgejo_oidc_admin_group }}" \ {% endif %}
-        {% if forgejo_oidc_restricted_group %} --restricted-group="{{ forgejo_oidc_restricted_group }}" \ {% endif %}
-        {% if forgejo_oidc_group_team_map %} --group-team-map="{{ forgejo_oidc_group_team_map }}" \ {% endif %}
-        --group-team-map-removal="{{ forgejo_oidc_group_team_map_removal }}" \
-        --allow-username-change="{{ forgejo_oidc_allow_username_change }}" \
-        --skip-local-2fa="{{ forgejo_oidc_skip_local_2fa }}"
-  failed_when: false
-  register: forgejo_configure_oauth_result
+- name: Adjust Forgejo OAuth configuration
+  block:
+  - name: Check if defined OAuth provider is registered
+    ansible.builtin.shell: docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth list
+    register: forgejo_oauth_provider_list_result
+    changed_when: false
+
+  - name: Detect ID of registered OAuth provider
+    ansible.builtin.set_fact:
+      forgejo_oauth_provider_id: "{{ forgejo_oauth_provider_list | json_query(forgejo_oauth_provider_id_query) }}"
+    vars:
+      tab: "\t"
+      forgejo_oauth_provider_list: "{{ forgejo_oauth_provider_list_result.stdout_lines | map('split', tab) | map('reject', '==', '^$') }}"
+      forgejo_oauth_provider_id_query: "[?[1]=='{{ forgejo_oidc_provider_name }}'] | [0][0] "
+
+  - name: Modify OAuth provider
+    when:
+      - forgejo_oidc_client_enabled | bool
+      - forgejo_oauth_provider_id != ""
+    ansible.builtin.shell: |
+      docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth update-oauth \
+          --id={{ forgejo_oauth_provider_id }} \
+          --provider=openidConnect \
+          --name="{{ forgejo_oidc_provider_name }}" \
+          --key="{{ forgejo_oidc_client_id }}" \
+          --secret="{{ forgejo_oidc_client_secret }}" \
+          --auto-discover-url="{{ forgejo_oidc_auto_discover_url }}" \
+          {% if forgejo_oidc_icon_url %} --icon-url="{{ forgejo_oidc_icon_url }}" \ {% endif %}
+          {% if forgejo_oidc_scopes %} --scopes="{{ forgejo_oidc_scopes }}" \ {% endif %}
+          {% if forgejo_oidc_required_claim_name %} --required-claim-name="{{ forgejo_oidc_required_claim_name }}" \ {% endif %}
+          {% if forgejo_oidc_required_claim_value %} --required-claim-value="{{ forgejo_oidc_required_claim_value }}" \ {% endif %}
+          {% if forgejo_oidc_group_claim_name %} --group-claim-name="{{ forgejo_oidc_group_claim_name }}" \ {% endif %}
+          {% if forgejo_oidc_admin_group %} --admin-group="{{ forgejo_oidc_admin_group }}" \ {% endif %}
+          {% if forgejo_oidc_restricted_group %} --restricted-group="{{ forgejo_oidc_restricted_group }}" \ {% endif %}
+          {% if forgejo_oidc_group_team_map %} --group-team-map="{{ forgejo_oidc_group_team_map }}" \ {% endif %}
+          --group-team-map-removal="{{ forgejo_oidc_group_team_map_removal }}" \
+          --allow-username-change="{{ forgejo_oidc_allow_username_change }}" \
+          --skip-local-2fa="{{ forgejo_oidc_skip_local_2fa }}"
+    register: forgejo_modify_oauth_result
+
+  - name: Add OAuth provider to Forgejo
+    when:
+      - forgejo_oidc_client_enabled | bool
+      - forgejo_oauth_provider_id == ""
+    ansible.builtin.shell: |
+      docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth add-oauth \
+          --provider=openidConnect \
+          --name="{{ forgejo_oidc_provider_name }}" \
+          --key="{{ forgejo_oidc_client_id }}" \
+          --secret="{{ forgejo_oidc_client_secret }}" \
+          --auto-discover-url="{{ forgejo_oidc_auto_discover_url }}" \
+          {% if forgejo_oidc_icon_url %} --icon-url="{{ forgejo_oidc_icon_url }}" \ {% endif %}
+          {% if forgejo_oidc_scopes %} --scopes="{{ forgejo_oidc_scopes }}" \ {% endif %}
+          {% if forgejo_oidc_required_claim_name %} --required-claim-name="{{ forgejo_oidc_required_claim_name }}" \ {% endif %}
+          {% if forgejo_oidc_required_claim_value %} --required-claim-value="{{ forgejo_oidc_required_claim_value }}" \ {% endif %}
+          {% if forgejo_oidc_group_claim_name %} --group-claim-name="{{ forgejo_oidc_group_claim_name }}" \ {% endif %}
+          {% if forgejo_oidc_admin_group %} --admin-group="{{ forgejo_oidc_admin_group }}" \ {% endif %}
+          {% if forgejo_oidc_restricted_group %} --restricted-group="{{ forgejo_oidc_restricted_group }}" \ {% endif %}
+          {% if forgejo_oidc_group_team_map %} --group-team-map="{{ forgejo_oidc_group_team_map }}" \ {% endif %}
+          --group-team-map-removal="{{ forgejo_oidc_group_team_map_removal }}" \
+          --allow-username-change="{{ forgejo_oidc_allow_username_change }}" \
+          --skip-local-2fa="{{ forgejo_oidc_skip_local_2fa }}"
+    register: forgejo_add_oauth_result
+
+  - name: Delete defined OAuth provider from Forgejo
+    when:
+      - not forgejo_oidc_client_enabled | bool
+      - forgejo_oauth_provider_id != ""
+    ansible.builtin.shell: |
+      docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth delete \
+          --id={{ forgejo_oauth_provider_id }} \
+    register: forgejo_delete_oauth_result
+
+- name: Ensure Forgejo service is restarted
+  ansible.builtin.service:
+    name: "{{ forgejo_identifier }}"
+    state: restarted
+  register: forgejo_restart
