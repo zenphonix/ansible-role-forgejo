@@ -43,7 +43,7 @@
     ansible.builtin.set_fact:
       forgejo_oauth_provider_id: "{{ forgejo_oauth_provider_list | json_query(forgejo_oauth_provider_id_query) }}"
     vars:
-      forgejo_oauth_provider_list: "{{ forgejo_oauth_provider_list_result.stdout_lines | map('split', '|') | map('reject', '==', '^$') }}"
+      forgejo_oauth_provider_list: "{{ forgejo_oauth_provider_list_result.stdout_lines | map('split', '|') | map('reject', 'match', '^$') }}"
       forgejo_oauth_provider_id_query: "[?[1]=='{{ forgejo_oidc_provider_name }}'] | [0][0] "
 
   - name: Modify OAuth provider
