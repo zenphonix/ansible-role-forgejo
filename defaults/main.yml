@@ -257,6 +257,26 @@ forgejo_oidc_group_team_map_removal: false
 forgejo_oidc_allow_username_change: false
 forgejo_oidc_skip_local_2fa: false
 
+## Configuration for the Nextcloud OIDC Provider
+# The name of the client
+forgejo_oidc_client_name: "{{ forgejo_identifier }}"
+# An array of redirect uris
+forgejo_oidc_redirect_uris: "https://{{ forgejo_hostname }}/user/oauth2/{{ forgejo_oidc_provider_name | urlencode }}/callback"
+# The signing algorithm to use. Can be ´RS256´ or ´HS256´.
+forgejo_oidc_algorithm: "RS256"
+# The flow type to use for authentication. Can be ´code´ or ´code id_token´.
+forgejo_oidc_flow: "code"
+# The type of the client. Can be ´public´ or ´confidential´. 
+forgejo_oidc_type: "confidential"
+# The type of the access token created for the client.
+# If set to ´jwt´ a RFC9068 conforming access token is generated.
+forgejo_oidc_token_type: "opaque"
+# The regular expression to select the used email from all email addresses of a user (primary and secondary).
+# If not set always the primary email address will be used.
+forgejo_oidc_email_regex: ""
+# The resource URL for this client (RFC 9728). Must be a valid URL with max length 512 characters.
+forgejo_oidc_resource_url: null
+
 # Environment variables
 #
 forgejo_config_root_url: "{{ forgejo_scheme }}://{{ forgejo_hostname }}{{ forgejo_path_prefix }}"
