@@ -35,7 +35,7 @@
   block:
   - name: Check if defined OAuth provider is registered
     ansible.builtin.command: >-
-      docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth list
+      docker exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth list --vertical-bars --pad-char "|"
     register: forgejo_oauth_provider_list_result
     changed_when: false
 
@@ -43,8 +43,7 @@
     ansible.builtin.set_fact:
       forgejo_oauth_provider_id: "{{ forgejo_oauth_provider_list | json_query(forgejo_oauth_provider_id_query) }}"
     vars:
-      tab: "\t"
-      forgejo_oauth_provider_list: "{{ forgejo_oauth_provider_list_result.stdout_lines | map('split', tab) | map('reject', '==', '^$') }}"
+      forgejo_oauth_provider_list: "{{ forgejo_oauth_provider_list_result.stdout_lines | map('split', '|') | map('reject', '==', '^$') }}"
       forgejo_oauth_provider_id_query: "[?[1]=='{{ forgejo_oidc_provider_name }}'] | [0][0] "
 
   - name: Modify OAuth provider
