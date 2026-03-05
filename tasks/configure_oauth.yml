@@ -66,7 +66,7 @@
             --allow-username-change="{{ forgejo_oidc_allow_username_change }}"
             --skip-local-2fa="{{ forgejo_oidc_skip_local_2fa }}"
       register: forgejo_modify_oauth_result
-      changed_when: false
+      changed_when: forgejo_modify_oauth_result.rc == 0
 
     - name: Add OAuth provider to Forgejo
       when:
@@ -91,7 +91,7 @@
             --allow-username-change="{{ forgejo_oidc_allow_username_change }}"
             --skip-local-2fa="{{ forgejo_oidc_skip_local_2fa }}"
       register: forgejo_add_oauth_result
-      changed_when: false
+      changed_when: forgejo_add_oauth_result.rc == 0
 
     - name: Delete defined OAuth provider from Forgejo
       when:
@@ -101,7 +101,7 @@
         {{ devture_systemd_docker_base_host_command_docker }} exec --user={{ forgejo_uid }}:{{ forgejo_gid }} {{ forgejo_identifier }} forgejo admin auth delete
             --id={{ forgejo_oauth_provider_id }}
       register: forgejo_delete_oauth_result
-      changed_when: false
+      changed_when: forgejo_delete_oauth_result.rc == 0
 
 - name: Ensure Forgejo service is restarted
   ansible.builtin.service:
