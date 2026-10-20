@@ -15,7 +15,11 @@
   with_items:
     - "{{ forgejo_base_path }}"
     - "{{ forgejo_data_path }}"
-    - "{{ forgejo_config_path }}"
+
+- name: Ensure legacy Forgejo config directory does not exist
+  ansible.builtin.file:
+    path: "{{ forgejo_base_path }}/config"
+    state: absent
 
 - name: Ensure Forgejo support files installed
   ansible.builtin.template:
@@ -32,27 +36,25 @@
 - name: Run if self-building of Forgejo container image is not enabled
   when: "not forgejo_container_image_self_build | bool"
   block:
-    - name: Ensure Forgejo container image is pulled via community.docker.docker_image
+    - name: Ensure Forgejo container image is pulled via community.docker.docker_image_pull
       when: devture_systemd_docker_base_container_image_pull_method == 'ansible-module'
-      community.docker.docker_image:
+      community.docker.docker_image_pull:
         name: "{{ forgejo_container_image }}"
-        source: "{{ 'pull' if ansible_version.major > 2 or ansible_version.minor > 7 else omit }}"
-        force_source: "{{ forgejo_container_image_force_pull if ansible_version.major > 2 or ansible_version.minor >= 8 else omit }}"
-        force: "{{ omit if ansible_version.major > 2 or ansible_version.minor >= 8 else forgejo_container_image_force_pull }}"
-      register: forgejo_container_image_pull_result
+        pull: always
+      register: forgejo_container_image_pull_result_ansible_module
       retries: "{{ devture_playbook_help_container_retries_count }}"
       delay: "{{ devture_playbook_help_container_retries_delay }}"
-      until: forgejo_container_image_pull_result is not failed
+      until: forgejo_container_image_pull_result_ansible_module is not failed
 
     - name: Ensure Forgejo container image is pulled via ansible.builtin.command
       when: devture_systemd_docker_base_container_image_pull_method == 'command'
       ansible.builtin.command:
         cmd: "{{ devture_systemd_docker_base_host_command_docker }} pull {{ forgejo_container_image }}"
-      register: forgejo_container_image_pull_result
+      register: forgejo_container_image_pull_result_command
       retries: "{{ devture_playbook_help_container_retries_count }}"
       delay: "{{ devture_playbook_help_container_retries_delay }}"
-      until: forgejo_container_image_pull_result is not failed
-      changed_when: "'Downloaded newer image' in forgejo_container_image_pull_result.stdout"
+      until: forgejo_container_image_pull_result_command is not failed
+      changed_when: "'Downloaded newer image' in forgejo_container_image_pull_result_command.stdout"
 
 - name: Run if self-building of Forgejo container image is enabled
   when: "forgejo_container_image_self_build | bool"
@@ -112,6 +114,7 @@
       {{
         forgejo_support_files_result.changed | default(false)
         or forgejo_systemd_service_result.changed | default(false)
-        or forgejo_container_image_pull_result.changed | default(false)
+        or forgejo_container_image_pull_result_ansible_module.changed | default(false)
+        or forgejo_container_image_pull_result_command.changed | default(false)
         or forgejo_container_image_build_result.changed | default(false)
       }}

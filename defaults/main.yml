@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2023 - 2024 Nikita Chernyi
-# SPDX-FileCopyrightText: 2023 - 2025 MASH project contributors
-# SPDX-FileCopyrightText: 2023 - 2025 Slavi Pantaleev
+# SPDX-FileCopyrightText: 2023, 2024 Nikita Chernyi
+# SPDX-FileCopyrightText: 2023-2025 MASH project contributors
+# SPDX-FileCopyrightText: 2023-2026 Slavi Pantaleev
 # SPDX-FileCopyrightText: 2024 Sergio Durigan Junior
-# SPDX-FileCopyrightText: 2025 Suguru Hirahara
+# SPDX-FileCopyrightText: 2025, 2026 Suguru Hirahara
 # SPDX-FileCopyrightText: 2026 Timofej Luitle
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
@@ -14,11 +14,10 @@ forgejo_enabled: true
 
 forgejo_identifier: forgejo
 forgejo_base_path: "/{{ forgejo_identifier }}"
-forgejo_config_path: "{{ forgejo_base_path }}/config"
 forgejo_data_path: "{{ forgejo_base_path }}/data"
 
 # renovate: datasource=docker depName=codeberg.org/forgejo/forgejo versioning=semver
-forgejo_version: 14.0.2
+forgejo_version: 17.0.0
 
 forgejo_uid: ""
 forgejo_gid: ""
@@ -37,7 +36,6 @@ forgejo_container_image_tag: "{{ forgejo_version }}-rootless"
 forgejo_container_image_registry_prefix: "{{ forgejo_container_image_registry_prefix_upstream }}"
 forgejo_container_image_registry_prefix_upstream: "{{ forgejo_container_image_registry_prefix_upstream_default }}"
 forgejo_container_image_registry_prefix_upstream_default: codeberg.org/
-forgejo_container_image_force_pull: "{{ forgejo_container_image.endswith(':latest') }}"
 
 forgejo_container_image_self_build: false
 forgejo_container_image_self_build_name: "forgejo/forgejo:{{ forgejo_container_image_self_build_repo_version }}"
@@ -57,6 +55,11 @@ forgejo_container_network_deletion_enabled: true
 # Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
 forgejo_container_http_host_bind_port: ""
 
+# Specify how the metrics container publishes its HTTP port (as defined by `forgejo_container_metrics_port`).
+#
+# Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
+forgejo_container_metrics_host_bind_port: ""
+
 # Specify how the container publishes its SSH port (as defined by `forgejo_container_ssh_port`).
 #
 # Takes an "<ip>:<port>" or "<port>" value (e.g. "127.0.0.1:2586"), or empty string to not expose.
@@ -64,6 +67,9 @@ forgejo_container_ssh_host_bind_port: "{{ forgejo_container_ssh_port }}"
 
 # The port number in the container
 forgejo_container_http_port: 3000
+
+# The port number of the metrics server in the container
+forgejo_container_metrics_port: 3000
 
 # The port number in the container
 forgejo_container_ssh_port: 22
@@ -89,6 +95,21 @@ forgejo_container_labels_traefik_priority: 0
 forgejo_container_labels_traefik_entrypoints: web-secure
 forgejo_container_labels_traefik_tls: "{{ forgejo_container_labels_traefik_entrypoints != 'web' }}"
 forgejo_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+
+# Controls if labels are added to expose the Prometheus metrics publicly.
+forgejo_container_labels_traefik_metrics_enabled: "{{ forgejo_config_metrics_enabled }}"
+forgejo_container_labels_traefik_metrics_hostname: "{{ forgejo_hostname }}"
+# The path prefix must either be `/` or not end with a slash (e.g. `/metrics`).
+forgejo_container_labels_traefik_metrics_path_prefix: /metrics
+forgejo_container_labels_traefik_metrics_rule: "Host(`{{ forgejo_container_labels_traefik_metrics_hostname }}`){% if forgejo_container_labels_traefik_metrics_path_prefix != '/' %} && PathPrefix(`{{ forgejo_container_labels_traefik_metrics_path_prefix }}`){% endif %}"
+forgejo_container_labels_traefik_metrics_priority: 0
+forgejo_container_labels_traefik_metrics_entrypoints: "{{ forgejo_container_labels_traefik_entrypoints }}"
+forgejo_container_labels_traefik_metrics_middlewares: []
+forgejo_container_labels_traefik_metrics_tls: "{{ forgejo_container_labels_traefik_metrics_entrypoints != 'web' }}"
+forgejo_container_labels_traefik_metrics_tls_certResolver: "{{ forgejo_container_labels_traefik_tls_certResolver }}"  # noqa var-naming
+forgejo_container_labels_traefik_metrics_middleware_basic_auth_enabled: false
+# See: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/basicauth/
+forgejo_container_labels_traefik_metrics_middleware_basic_auth_users: ""
 
 # forgejo_container_labels_traefik_tcp_enabled controls whether labels to assist a Traefik reverse-proxy for SSH connections will be attached to the container.
 # See `../templates/labels.j2` for details.
@@ -148,6 +169,12 @@ forgejo_container_tmpfs_tmp_size: 128m
 forgejo_container_extra_arguments: "{{ forgejo_container_extra_arguments_auto + forgejo_container_extra_arguments_custom }}"
 forgejo_container_extra_arguments_auto: []
 forgejo_container_extra_arguments_custom: []
+
+# A list of extra arguments to pass to the process inside the container
+# Example: ['--SOME_ARGUMENT']
+forgejo_process_extra_arguments: "{{ forgejo_process_extra_arguments_auto + forgejo_process_extra_arguments_custom }}"
+forgejo_process_extra_arguments_auto: []
+forgejo_process_extra_arguments_custom: []
 
 # Specifies the value of the `X-XSS-Protection` header
 # Stops pages from loading when they detect reflected cross-site scripting (XSS) attacks.
@@ -239,10 +266,70 @@ forgejo_container_cleanup_command: |
   echo "Failed to remove stale container {{ forgejo_identifier }} after {{ forgejo_container_cleanup_timeout_seconds }} attempts" >&2;
   exit 1
 
-# Specify database to use
+########################################################################
+#                                                                      #
+# cache                                                                #
+#                                                                      #
+########################################################################
+
+# Specify cache adapter
+# Valid values: memcache, memory, redis, redis-cluster, twoqueue
+# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#cache-cache
+forgejo_config_cache_adapter: memory
+
+# Control if the connection to Memcached is made via a Unix socket
+forgejo_cache_memcache_socket_enabled: true
+
+# Specify the path to the Memcached Unix socket path inside the Forgejo container
+forgejo_cache_memcache_socket_path_container: /run-memcached
+
+# Specify the path to the Memcached Unix socket path on the host (bind-mount source)
+forgejo_cache_memcache_socket_path_host: ""
+
+# Control if the connection to Redis is made via a Unix socket
+forgejo_cache_redis_socket_enabled: true
+
+# Specify the path to the Redis Unix socket path inside the Forgejo container
+forgejo_cache_redis_socket_path_container: /run-valkey
+forgejo_redis_socket_path: /valkey.sock
+
+# Specify the path to the Redis Unix socket path on the host (bind-mount source)
+forgejo_cache_redis_socket_path_host: ""
+
+forgejo_config_cache_host: |
+  {%- if forgejo_config_cache_adapter == 'redis' -%}
+
+  {%- if forgejo_cache_redis_socket_enabled -%}
+  redis+socket://{{ forgejo_cache_redis_socket_path_container + forgejo_redis_socket_path }}?db={{ forgejo_redis_database }}?pool_size=100&idle_timeout=180s
+  {%- else -%}
+  redis://{{ forgejo_redis_username }}:{{ forgejo_redis_password }}@{{ forgejo_redis_hostname }}:{{ forgejo_redis_port }}/{{ forgejo_redis_database }}?pool_size=100&idle_timeout=180s
+  {%- endif -%}
+
+  {%- elif forgejo_config_cache_adapter == 'redis-cluster' -%}
+  redis+cluster://{{ forgejo_redis_username }}:{{ forgejo_redis_password }}@{{ forgejo_redis_hostname }}:{{ forgejo_redis_port }}/{{ forgejo_redis_database }}?pool_size=100&idle_timeout=180s
+
+  {%- elif forgejo_config_cache_adapter == 'memcached' -%}
+  {{ forgejo_cache_memcache_socket_path_container + '/memcached.sock' if forgejo_cache_memcache_socket_enabled else '' }}"
+
+  {%- endif -%}
+
+########################################################################
+#                                                                      #
+# /cache                                                               #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+# database                                                             #
+#                                                                      #
+########################################################################
+
+# Specify a database driver to use
 # Valid values: mysql, postgres, sqlite
 forgejo_database_type: sqlite
 
+# Specify database configuration
 forgejo_database_mysql_hostname: ""
 forgejo_database_mysql_port: 3306
 forgejo_database_mysql_username: forgejo
@@ -251,14 +338,80 @@ forgejo_database_postgres_hostname: ""
 forgejo_database_postgres_port: 5432
 forgejo_database_postgres_username: forgejo
 forgejo_database_postgres_password: ""
-
+# Specify SSL mode for MySQL database server
+# By default, we expect a local container (without SSL), so attempting SSL connections is not necessary.
+# Valid values: see https://forgejo.org/docs/latest/admin/config-cheat-sheet/#database-database
+forgejo_database_mysql_sslmode: disable
+# Specify SSL mode for Postgres database server
+# By default, we expect a local container (without SSL), so attempting SSL connections is not necessary.
+# Valid values: see https://forgejo.org/docs/latest/admin/config-cheat-sheet/#database-database
+forgejo_database_postgres_sslmode: disable
 forgejo_database_name: forgejo
+
+# Control if the database connection to MySQL is made via a Unix socket
+forgejo_database_mysql_socket_enabled: true
+
+# Specify the path to the MySQL Unix socket path inside the Forgejo container
+forgejo_database_mysql_socket_path_container: /run-mysqld
+
+# Specify the path to the MySQL Unix socket path on the host (bind-mount source)
+forgejo_database_mysql_socket_path_host: ""
+
+# Control if the database connection to Postgres is made via a Unix socket
+forgejo_database_postgres_socket_enabled: true
+
+# Specify the path to the Postgres Unix socket path inside the Forgejo container
+forgejo_database_postgres_socket_path_container: /run-postgres
+
+# Specify the path to the Postgres Unix socket path on the host (bind-mount source)
+forgejo_database_postgres_socket_path_host: ""
+
+# Specify database host address and port or absolute path for Unix socket
+forgejo_config_database_host_mysql: "{{ forgejo_database_mysql_socket_path_container + '/mysqld.sock' if forgejo_database_mysql_socket_enabled else forgejo_database_mysql_hostname + ':' + forgejo_database_mysql_port | string }}"
+forgejo_config_database_host_postgres: "{{ forgejo_database_postgres_socket_path_container if forgejo_database_postgres_socket_enabled else forgejo_database_postgres_hostname + ':' + forgejo_database_postgres_port | string }}"
+
+########################################################################
+#                                                                      #
+# /database                                                            #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+# session                                                              #
+#                                                                      #
+########################################################################
+
+# Specify cache adapter
+# Valid values: memory, file, redis, db, mysql, couchbase, memcache, postgres
+# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#session-session
+forgejo_config_session_provider: "{{ 'db' if forgejo_database_type != '' else 'memory' }}"
+
+########################################################################
+#                                                                      #
+# /session                                                             #
+#                                                                      #
+########################################################################
 
 forgejo_redis_hostname: ""
 forgejo_redis_port: 6379
 forgejo_redis_username: ""
 forgejo_redis_password: ""
 forgejo_redis_database: 0
+
+# Specify issue indexer type
+# Valid values: bleve, db, elasticsearch, meilisearch
+forgejo_environment_variables_indexer_issue_indexer_type: bleve
+
+# Specify issue indexer connection string
+# Available when forgejo_environment_variables_indexer_issue_indexer_type is `elasticsearch` or `meilisearch`
+forgejo_environment_variables_indexer_issue_indexer_conn_str: ""
+
+# Enable this to send e-mail to watchers of a repository when something happens, like creating issues. Requires Mailer to be enabled.
+# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#service-service
+#
+# We enable this by default if the mailer is enabled, because it makes sense to have it used for more than just transactional emails.
+forgejo_config_service_enable_notify_email: "{{ forgejo_config_mailer_enabled }}"
 
 forgejo_config_mailer_enabled: false
 forgejo_config_mailer_from: ""
@@ -267,6 +420,90 @@ forgejo_config_mailer_smtp_addr: ""
 forgejo_config_mailer_smtp_port: 587
 forgejo_config_mailer_user: ""
 forgejo_config_mailer_passwd: ""
+
+# Control if the /metrics endpoint for Prometheus is enabled
+forgejo_config_metrics_enabled: false
+
+forgejo_config_root_url: "{{ forgejo_scheme }}://{{ forgejo_hostname }}{{ forgejo_path_prefix }}"
+
+# Controls the `FORGEJO__server__SSH_LISTEN_PORT` environment variable.
+forgejo_config_server_ssh_listen_port: 4382 # Random number to avoid collision
+
+# Control if minimum key size with corresponding type is checked
+forgejo_config_server_minimum_key_size_check: true
+
+# Controls the RUN_USER configuration setting (`FORGEJO____RUN_USER=` environment variable).
+#
+# This defaults to `git` in the upstream configuration.
+#
+# On startup, Forgejo checks if the resolved username for the user it works with matches the RUN_USER.
+#
+# Because we run the container with a custom user (forgejo_uid),
+# and not with uid=1000 matching the git user and inside the container,
+# unless we unset this, we'd get an error message:
+# > `Expect user 'git' but current user is: `
+#
+# Unsetting this to an empty string makes it match. Unless you forgejo_uid accidentally hits some other user that is part of the container's /etc/passwd file.
+forgejo_config_run_user: "{{ 'git' if forgejo_uid | string == '1000' else '' }}"
+
+# Controls the `FORGEJO__security__REVERSE_PROXY_TRUSTED_PROXIES` environment variable —
+# a list of IP addresses or CIDR ranges of reverse proxies whose `X-Forwarded-For` / `X-Real-IP`
+# headers are trusted when determining the actual client IP address.
+# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#security-security
+#
+# Requests from untrusted addresses have their forwarding headers ignored,
+# making Forgejo see the reverse proxy's IP address as the client IP address.
+#
+# The default below trusts the loopback and all private (RFC1918) address ranges,
+# which covers reverse proxies (e.g. Traefik) reaching Forgejo over a local container network.
+forgejo_config_security_reverse_proxy_trusted_proxies:
+  - 127.0.0.0/8
+  - ::1/128
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+
+# Controls the `FORGEJO__service__DISABLE_REGISTRATION` environment variable.
+# Disables registration, after which only admins can create accounts for users.
+forgejo_config_service_disable_registration: true
+
+# Controls the `FORGEJO__service__REGISTER_EMAIL_CONFIRM` environment variable.
+# Enable this to ask for mail confirmation of registration. Requires Mailer to be enabled.
+forgejo_config_service_register_email_confirm: false
+
+# Controls the `FORGEJO__service__REGISTER_MANUAL_CONFIRM` environment variable.
+# Enable this to manually confirm new registrations. Requires REGISTER_EMAIL_CONFIRM to be disabled.
+forgejo_config_service_register_manual_confirm: false
+
+# Controls the `FORGEJO__service__ENABLE_OPENID_SIGNIN` environment variable.
+# Enables OpenID sign-in.
+# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#openid-openid
+forgejo_config_service_enable_openid_signin: true
+
+# Controls the `FORGEJO__service__ENABLE_OPENID_SIGNUP` environment variable.
+# Enables OpenID sign-up.
+# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#openid-openid
+forgejo_config_service_enable_openid_signup: "{{ not forgejo_config_service_disable_registration }}"
+
+# Controls the `FORGEJO__oauth2_client__ENABLE_AUTO_REGISTRATION` environment variable.
+# Enables automatic user accounts creation for new OAuth2 users.
+# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#oauth2-client-oauth2_client
+forgejo_config_oauth2_client_enable_auto_registration: false
+
+# When integrating Forgejo with Woodpecker CI, and if Woodpecker is
+# served under a subpath (e.g. `https://forgejo.host/ci`), it is
+# necessary to use Docker's `--add-host` option to point Forgejo to
+# the external host IP, so that webhook calls to Woodpecker can work.
+#
+# For example:
+#
+#  forgejo_container_add_host_domain_name: "{{ devture_woodpecker_ci_server_hostname }}"
+#  forgejo_container_add_host_domain_ip_address: "{{ ansible_host }}"
+#
+# Don't forget to also update `webhook.ALLOWED_HOST_LIST` on Forgejo's
+# app.ini config file.
+forgejo_container_add_host_domain_name: ""
+forgejo_container_add_host_domain_ip_address: ""
 
 # OAuth2 configuration (with OpenID Connect). See https://forgejo.org/docs/latest/admin/command-line/#admin-auth-add-oauth for details
 forgejo_oidc_client_enabled: false
@@ -298,85 +535,6 @@ forgejo_oidc_group_team_map: ""
 forgejo_oidc_group_team_map_removal: false
 forgejo_oidc_allow_username_change: false
 forgejo_oidc_skip_local_2fa: false
-
-# Environment variables
-#
-forgejo_config_root_url: "{{ forgejo_scheme }}://{{ forgejo_hostname }}{{ forgejo_path_prefix }}"
-
-# Controls the `FORGEJO__server__SSH_LISTEN_PORT` environment variable.
-forgejo_config_server_ssh_listen_port: 4382 # Random number to avoid collision
-
-# Control if minimum key size with corresponding type is checked
-forgejo_config_server_minimum_key_size_check: true
-
-# Enable this to send e-mail to watchers of a repository when something happens, like creating issues. Requires Mailer to be enabled.
-# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#service-service
-#
-# We enable this by default if the mailer is enabled, because it makes sense to have it used for more than just transactional emails.
-forgejo_config_service_enable_notify_email: "{{ forgejo_config_mailer_enabled }}"
-
-# Controls the `FORGEJO__service__DISABLE_REGISTRATION` environment variable.
-# Disables registration, after which only admins can create accounts for users.
-forgejo_config_service_disable_registration: true
-
-# Controls the `FORGEJO__service__REGISTER_EMAIL_CONFIRM` environment variable.
-# Enable this to ask for mail confirmation of registration. Requires Mailer to be enabled.
-forgejo_config_service_register_email_confirm: false
-
-# Controls the `FORGEJO__service__REGISTER_MANUAL_CONFIRM` environment variable.
-# Enable this to manually confirm new registrations. Requires REGISTER_EMAIL_CONFIRM to be disabled.
-forgejo_config_service_register_manual_confirm: false
-
-# Controls the `FORGEJO__service__ENABLE_OPENID_SIGNIN` environment variable.
-# Enables OpenID sign-in.
-# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#openid-openid
-forgejo_config_service_enable_openid_signin: true
-
-# Controls the `FORGEJO__service__ENABLE_OPENID_SIGNUP` environment variable.
-# Enables OpenID sign-up.
-# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#openid-openid
-forgejo_config_service_enable_openid_signup: "{{ not forgejo_config_service_disable_registration }}"
-
-# Controls the `FORGEJO__oauth2_client__ENABLE_AUTO_REGISTRATION` environment variable.
-# Enables automatic user accounts creation for new OAuth2 users.
-# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#oauth2-client-oauth2_client
-forgejo_config_oauth2_client_enable_auto_registration: false
-
-# Controls the RUN_USER configuration setting (`FORGEJO____RUN_USER=` environment variable).
-#
-# This defaults to `git` in the upstream configuration.
-#
-# On startup, Forgejo checks if the resolved username for the user it works with matches the RUN_USER.
-#
-# Because we run the container with a custom user (forgejo_uid),
-# and not with uid=1000 matching the git user and inside the container,
-# unless we unset this, we'd get an error message:
-# > `Expect user 'git' but current user is: `
-#
-# Unsetting this to an empty string makes it match. Unless you forgejo_uid accidentally hits some other user that is part of the container's /etc/passwd file.
-forgejo_config_run_user: "{{ 'git' if forgejo_uid | string == '1000' else '' }}"
-
-# When integrating Forgejo with Woodpecker CI, and if Woodpecker is
-# served under a subpath (e.g. `https://forgejo.host/ci`), it is
-# necessary to use Docker's `--add-host` option to point Forgejo to
-# the external host IP, so that webhook calls to Woodpecker can work.
-#
-# For example:
-#
-#  forgejo_container_add_host_domain_name: "{{ devture_woodpecker_ci_server_hostname }}"
-#  forgejo_container_add_host_domain_ip_address: "{{ ansible_host }}"
-#
-# Don't forget to also update `webhook.ALLOWED_HOST_LIST` on Forgejo's
-# app.ini config file.
-forgejo_container_add_host_domain_name: ""
-forgejo_container_add_host_domain_ip_address: ""
-
-# Specify cache adapter
-# Valid values: memcache, memory, redis, redis-cluster, twoqueue
-# See: https://forgejo.org/docs/latest/admin/config-cheat-sheet/#cache-cache
-forgejo_config_cache_adapter: memory
-
-forgejo_config_cache_host: ""
 
 # Specify the timezone
 forgejo_environment_variables_tz: UTC

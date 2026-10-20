@@ -1,19 +1,22 @@
 <!--
-SPDX-FileCopyrightText: 2020 - 2024 MDAD project contributors
-SPDX-FileCopyrightText: 2020 - 2024 Slavi Pantaleev
 SPDX-FileCopyrightText: 2020 Aaron Raimist
 SPDX-FileCopyrightText: 2020 Chris van Dijk
 SPDX-FileCopyrightText: 2020 Dominik Zajac
 SPDX-FileCopyrightText: 2020 Mickaël Cornière
+SPDX-FileCopyrightText: 2020-2024 MDAD project contributors
+SPDX-FileCopyrightText: 2020-2024 Slavi Pantaleev
 SPDX-FileCopyrightText: 2022 François Darveau
 SPDX-FileCopyrightText: 2022 Julian Foad
 SPDX-FileCopyrightText: 2022 Warren Bailey
+SPDX-FileCopyrightText: 2023 Alejandro AR
 SPDX-FileCopyrightText: 2023 Antonis Christofides
 SPDX-FileCopyrightText: 2023 Felix Stupp
+SPDX-FileCopyrightText: 2023 Julian-Samuel Gebühr
 SPDX-FileCopyrightText: 2023 MASH project contributors
 SPDX-FileCopyrightText: 2023 Pierre 'McFly' Marty
-SPDX-FileCopyrightText: 2024 - 2025 Suguru Hirahara
 SPDX-FileCopyrightText: 2024 Sergio Durigan Junior
+SPDX-FileCopyrightText: 2024 Thomas Miceli
+SPDX-FileCopyrightText: 2024-2026 Suguru Hirahara
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
@@ -67,9 +70,11 @@ forgejo_hostname: "example.com"
 
 After adjusting the hostname, make sure to adjust your DNS records to point the domain to your server.
 
-### Specify database (optional)
+### Configuring database
 
-You can specify a database used by Forgejo. By default it is configured to use SQLite.
+#### Specify database (optional)
+
+You can specify a database used by Forgejo. By default it is configured to use SQLite. The SQLite database is stored in the directory specified with `forgejo_data_path`.
 
 To use Postgres, add the following configuration to your `vars.yml` file:
 
@@ -79,7 +84,31 @@ forgejo_database_type: postgres
 
 Set `mysql` to use a MySQL compatible database.
 
-For other settings, check variables such as `forgejo_database_mysql_*` and `forgejo_database_postgres_*` on [`defaults/main.yml`](../defaults/main.yml).
+For other settings, check variables such as `forgejo_database_*` on [`defaults/main.yml`](../defaults/main.yml).
+
+#### Configuring connection to the database server (optional)
+
+By default the role is configured to establish the connection to the database server via a Unix socket. You can mount the Unix socket by adding the following configuration to your `vars.yml` file:
+
+```yaml
+# Specify the path to the MySQL compatible server's Unix socket path on the host (bind-mount source)
+forgejo_database_mysql_socket_path_host: ""
+
+# Specify the path to the Postgres Unix socket path on the host (bind-mount source)
+forgejo_database_postgres_socket_path_host: ""
+```
+
+Setting it enables to connect to the database server via Unix socket mounted in the container.
+
+If TCP connection is preferred, connection via the Unix socket can be disabled by adding the following configuration to your `vars.yml` file:
+
+```yaml
+# Disable the connection to the MySQL compatible server via a Unix socket
+forgejo_database_mysql_socket_enabled: false
+
+# Disable the connection to the Postgres server via a Unix socket
+forgejo_database_postgres_socket_enabled: false
+```
 
 ### Configure SSH port for Forgejo (optional)
 
@@ -115,7 +144,7 @@ forgejo_redis_database: 0
 
 Make sure to replace `YOUR_REDIS_SERVER_HOSTNAME_HERE` and `YOUR_REDIS_SERVER_PASSWORD_HERE` with your own values.
 
-If you are looking for an Ansible role for Redis, you can check out [ansible-role-redis](https://github.com/mother-of-all-self-hosting/ansible-role-redis) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team. The roles for [KeyDB](https://keydb.dev/) ([ansible-role-keydb](https://github.com/mother-of-all-self-hosting/ansible-role-keydb)) and [Valkey](https://valkey.io/) ([ansible-role-valkey](https://github.com/mother-of-all-self-hosting/ansible-role-valkey)) are available as well.
+If you are looking for an Ansible role for Redis, you can check out [ansible-role-redis](https://github.com/mother-of-all-self-hosting/ansible-role-redis) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team. The role for Valkey ([ansible-role-valkey](https://github.com/mother-of-all-self-hosting/ansible-role-valkey)) is available as well.
 
 #### Configuration for `memcache` and `twoqueue`
 
@@ -125,9 +154,30 @@ If `memcache` or `twoqueue` is set to `forgejo_config_cache_adapter`, you can se
 forgejo_config_cache_host: CONNECTION_STRING_HERE
 ```
 
-See [this section](https://forgejo.org/docs/latest/admin/config-cheat-sheet/#cache-cache) on the official documentation for details.
+Note that the role is configured to establish connection with the Memcached instance via the Unix socket by default.
 
-If you are looking for an Ansible role for [Memcached](https://memcached.org), you can check out [ansible-role-memcache](https://app.radicle.xyz/nodes/seed.radicle.garden/rad%3Az2arPcue4GZ6G6FY3gZexsJXqHyDs) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
+Refer to [this section](https://forgejo.org/docs/latest/admin/config-cheat-sheet/#cache-cache) on the official documentation for details.
+
+If you are looking for an Ansible role for [Memcached](https://memcached.org), you can check out [ansible-role-memcache](https://radicle.network/nodes/iris.radicle.network/rad%3Az2arPcue4GZ6G6FY3gZexsJXqHyDs) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
+
+### Configuring issue indexer (optional)
+
+By default Forgejo is configured to use `bleve` as an issue indexer, but you can use a specific indexer by adding the following configuration to your `vars.yml` file (adapt to your needs):
+
+```yaml
+# Valid values: bleve, db, elasticsearch, meilisearch
+forgejo_environment_variables_indexer_issue_indexer_type: ISSUE_INDEXER_VALUE_HERE
+
+# Specify issue indexer connection string
+forgejo_environment_variables_indexer_issue_indexer_conn_str: YOUR_ISSUE_INDEXER_CONNECTION_STRING_HERE
+```
+
+Refer to [this section](https://forgejo.org/docs/latest/admin/config-cheat-sheet/#indexer-indexer) on the official documentation for details.
+
+>[!NOTE]
+> The default Admin API Key is sufficient for using Meilisearch on a Forgejo instance. It is [not recommended](https://www.meilisearch.com/docs/learn/security/basic_security) to use the master key for operations anything but managing other API keys.
+
+If you are looking for an Ansible role for Meilisearch, you can check out [ansible-role-meilisearch](https://github.com/mother-of-all-self-hosting/ansible-role-meilisearch) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
 
 ### Configure OAuth2/OpenID Connect login (optional)
 
@@ -168,6 +218,26 @@ consumed by this role's task logic:
 - `forgejo_oidc_authorize_url`
 - `forgejo_oidc_token_url`
 - `forgejo_oidc_userinfo_url`
+
+### Configuring trusted reverse proxies (optional)
+
+Forgejo determines the actual client IP address from `X-Forwarded-For` / `X-Real-IP` headers only if the request comes from a trusted reverse proxy (refer to [`REVERSE_PROXY_TRUSTED_PROXIES`](https://forgejo.org/docs/latest/admin/config-cheat-sheet/#security-security)).
+
+Since this role typically runs Forgejo behind a reverse proxy (e.g. Traefik) on a container network, it trusts the loopback and all private (RFC1918) address ranges by default.
+
+To adjust the list of trusted proxies, add the following configuration to your `vars.yml` file (adapt to your needs):
+
+```yaml
+forgejo_config_security_reverse_proxy_trusted_proxies:
+  - 127.0.0.0/8
+  - ::1/128
+```
+
+### Integrating with Prometheus (optional)
+
+Forgejo can natively expose metrics to Prometheus.
+
+If you are looking for an integration, you can check out the MASH playbook. Refer to [this section of the documentation on the playbook](https://github.com/mother-of-all-self-hosting/mash-playbook/blob/main/docs/services/forgejo.md#integrating-with-prometheus-optional) for more information.
 
 ### Extending the configuration
 
@@ -231,7 +301,7 @@ Nevertheless, upgrades may be possible with some manual work. Below is a rough g
     sed --in-place 's/OWNER TO gitea/OWNER TO forgejo/g' /mash/gitea-to-forgejo-migration/forgejo.sql
     ```
 
-4. Prepare the `forgejo` Postgres database by running the playbook: `just run-tags install-postgres`
+4. Prepare the `forgejo` Postgres database by running the playbook: `ansible-playbook -i inventory/hosts setup.yml --tags=install-postgres`
 
 5. Import the database dump into the `forgejo` Postgres database
 
@@ -250,7 +320,7 @@ Nevertheless, upgrades may be possible with some manual work. Below is a rough g
     -c 'set -o pipefail && psql -h mash-postgres -d forgejo < /out/forgejo.sql'
     ```
 
-6. Install Forgejo using the playbook, but do not start it yet: `just run-tags install-forgejo`
+6. Install Forgejo using the playbook, but do not start it yet: `ansible-playbook -i inventory/hosts setup.yml --tags=install-forgejo`
 
 7. Sync some files from Gitea by running these commands on the server
 
@@ -335,7 +405,7 @@ Nevertheless, upgrades may be possible with some manual work. Below is a rough g
 
     You can do this by:
 
-    - removing the Gitea configuration from `vars.yml` and re-running the playbook (e.g. `just run-tags setup-gitea`). This will delete the `/mash/gitea` directory
+    - removing the Gitea configuration from `vars.yml` and re-running the playbook (e.g. `ansible-playbook -i inventory/hosts setup.yml --tags=setup-gitea`). This will delete the `/mash/gitea` directory
     - dropping the `gitea` database from the Postgres server (execute `/mash/postgres/bin/cli` and run `DROP DATABASE gitea;`)
     - deleting the `/mash/gitea-to-forgejo-migration` temporary directory: `rm -rf /mash/gitea-to-forgejo-migration`
 

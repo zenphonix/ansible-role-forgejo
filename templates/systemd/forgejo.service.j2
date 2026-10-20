@@ -1,8 +1,8 @@
 {#
-SPDX-FileCopyrightText: 2023 - 2025 Slavi Pantaleev
 SPDX-FileCopyrightText: 2023 MASH project contributors
+SPDX-FileCopyrightText: 2023-2025 Slavi Pantaleev
 SPDX-FileCopyrightText: 2024 Nikita Chernyi
-SPDX-FileCopyrightText: 2025 Suguru Hirahara
+SPDX-FileCopyrightText: 2025, 2026 Suguru Hirahara
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 #}
@@ -34,6 +34,9 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
       {% if forgejo_container_http_host_bind_port %}
       -p {{ forgejo_container_http_host_bind_port }}:{{ forgejo_container_http_port }} \
       {% endif %}
+      {% if forgejo_container_metrics_host_bind_port %}
+      -p {{ forgejo_container_metrics_host_bind_port }}:{{ forgejo_container_metrics_port }} \
+      {% endif %}
       {% if forgejo_container_ssh_host_bind_port != '' and not forgejo_container_labels_traefik_tcp_enabled %}
       -p {{ forgejo_container_ssh_host_bind_port }}:{{ forgejo_config_server_ssh_listen_port }} \
       {% endif %}
@@ -43,12 +46,26 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
       --env-file={{ forgejo_base_path }}/env \
       --label-file={{ forgejo_base_path }}/labels \
       --mount type=bind,src={{ forgejo_data_path }},dst=/var/lib/gitea \
-      --mount type=bind,src={{ forgejo_config_path }},dst=/etc/gitea \
+      {% if forgejo_config_cache_adapter == 'memcache' and forgejo_cache_memcache_socket_enabled and forgejo_cache_memcache_socket_path_host != '' %}
+      --mount type=bind,src={{ forgejo_cache_memcache_socket_path_host }},dst={{ forgejo_cache_memcache_socket_path_container }} \
+      {% endif %}
+      {% if forgejo_config_cache_adapter == 'redis' and forgejo_cache_redis_socket_enabled and forgejo_cache_redis_socket_path_host != '' %}
+      --mount type=bind,src={{ forgejo_cache_redis_socket_path_host }},dst={{ forgejo_cache_redis_socket_path_container }} \
+      {% endif %}
+      {% if forgejo_database_type == 'mysql' and forgejo_database_mysql_socket_enabled and forgejo_database_mysql_socket_path_host != '' %}
+      --mount type=bind,src={{ forgejo_database_mysql_socket_path_host }},dst={{ forgejo_database_mysql_socket_path_container }} \
+      {% endif %}
+      {% if forgejo_database_type == 'postgres' and forgejo_database_postgres_socket_enabled and forgejo_database_postgres_socket_path_host != '' %}
+      --mount type=bind,src={{ forgejo_database_postgres_socket_path_host }},dst={{ forgejo_database_postgres_socket_path_container }} \
+      {% endif %}
       --tmpfs=/tmp:rw,noexec,nosuid,size={{ forgejo_container_tmpfs_tmp_size }} \
       {% for arg in forgejo_container_extra_arguments %}
       {{ arg }} \
       {% endfor %}
-      {{ forgejo_container_image_self_build_name if forgejo_container_image_self_build else forgejo_container_image }}
+      {{ forgejo_container_image_self_build_name if forgejo_container_image_self_build else forgejo_container_image }} \
+      {% for arg in forgejo_process_extra_arguments %}
+      {{ arg }} \
+      {% endfor %}
 
 {% for network in forgejo_container_additional_networks %}
 ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} {{ forgejo_identifier }}

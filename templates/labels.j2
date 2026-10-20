@@ -57,9 +57,60 @@ traefik.http.routers.{{ forgejo_identifier }}.tls.certResolver={{ forgejo_contai
 {% endif %}
 
 traefik.http.services.{{ forgejo_identifier }}.loadbalancer.server.port={{ forgejo_container_http_port }}
+
+{% if forgejo_container_labels_traefik_metrics_enabled %}
+########################################################################
+#                                                                      #
+# Metrics                                                              #
+#                                                                      #
+########################################################################
+
+{% set middlewares = forgejo_container_labels_traefik_metrics_middlewares %}
+
+{% if forgejo_container_labels_traefik_metrics_middleware_basic_auth_enabled %}
+traefik.http.middlewares.{{ forgejo_identifier }}-metrics-basic-auth.basicauth.users={{ forgejo_container_labels_traefik_metrics_middleware_basic_auth_users }}
+{% set middlewares = middlewares + [forgejo_identifier + '-metrics-basic-auth'] %}
+{% endif %}
+
+traefik.http.middlewares.{{ forgejo_identifier }}-metrics-replace-path.replacepath.path=/metrics
+{% set middlewares = middlewares + [forgejo_identifier + '-metrics-replace-path'] %}
+
+traefik.http.routers.{{ forgejo_identifier }}-metrics.rule={{ forgejo_container_labels_traefik_metrics_rule }}
+
+{% if forgejo_container_labels_traefik_metrics_priority | int > 0 %}
+traefik.http.routers.{{ forgejo_identifier }}-metrics.priority={{ forgejo_container_labels_traefik_metrics_priority }}
+{% endif %}
+
+traefik.http.routers.{{ forgejo_identifier }}-metrics.service={{ forgejo_identifier }}-metrics
+
+{% if middlewares | length > 0 %}
+traefik.http.routers.{{ forgejo_identifier }}-metrics.middlewares={{ middlewares | join(',') }}
+{% endif %}
+
+traefik.http.routers.{{ forgejo_identifier }}-metrics.entrypoints={{ forgejo_container_labels_traefik_metrics_entrypoints }}
+
+traefik.http.routers.{{ forgejo_identifier }}-metrics.tls={{ forgejo_container_labels_traefik_metrics_tls | to_json }}
+{% if forgejo_container_labels_traefik_metrics_tls %}
+traefik.http.routers.{{ forgejo_identifier }}-metrics.tls.certResolver={{ forgejo_container_labels_traefik_metrics_tls_certResolver }}
+{% endif %}
+
+traefik.http.services.{{ forgejo_identifier }}-metrics.loadbalancer.server.port={{ forgejo_container_metrics_port }}
+
+########################################################################
+#                                                                      #
+# /Metrics                                                             #
+#                                                                      #
+########################################################################
+{% endif %}
+
 {% endif %}
 
 {% if forgejo_container_labels_traefik_tcp_enabled and forgejo_container_ssh_host_bind_port %}
+########################################################################
+#                                                                      #
+# SSH                                                                  #
+#                                                                      #
+########################################################################
 
 traefik.tcp.routers.{{ forgejo_identifier }}.rule={{ forgejo_container_labels_traefik_tcp_rule }}
 {% if forgejo_container_labels_traefik_tcp_priority | int > 0 %}
@@ -70,6 +121,11 @@ traefik.tcp.routers.{{ forgejo_identifier }}.entrypoints={{ forgejo_container_la
 
 traefik.tcp.services.{{ forgejo_identifier }}.loadbalancer.server.port={{ forgejo_config_server_ssh_listen_port }}
 
+########################################################################
+#                                                                      #
+# /SSH                                                                 #
+#                                                                      #
+########################################################################
 {% endif %}
 
 {% for arg in forgejo_container_labels_additional_labels %}

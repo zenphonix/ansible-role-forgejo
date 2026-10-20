@@ -1,0 +1,152 @@
+# SPDX-FileCopyrightText: 2026 Slavi Pantaleev
+# SPDX-FileCopyrightText: 2026 spatterlight
+# SPDX-FileCopyrightText: 2026 Suguru Hirahara
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+# The role is not included in this playbook, so its defaults are not in
+# scope. Reading defaults/main.yml directly ties the version assertion
+# below.
+- name: Load the role defaults
+  ansible.builtin.include_vars:
+    file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+    name: forgejo_defaults
+
+- name: Wait for the Forgejo systemd services to become active (up to 180s each)
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+  register: forgejo_services
+  until: forgejo_services.status.ActiveState == 'active'
+  retries: 36
+  delay: 5
+  loop: "{{ forgejo_verify_units }}"
+  # So that giving up is reported by the assertion below rather than as a
+  # wall of systemd unit properties.
+  failed_when: false
+
+# `Restart=always` in the systemd unit means that even a container which crashes
+# and gets restarted reads as active here, so this is a precondition rather than
+# a result.
+- name: Assert the Forgejo systemd services are active
+  ansible.builtin.assert:
+    that: forgejo_services.results | map(attribute='status.ActiveState') | unique | list == ['active']
+    fail_msg: >-
+      Not every service is active:
+      {{ dict(forgejo_verify_units | zip(forgejo_services.results | map(attribute='status.ActiveState'))) }}
+    success_msg: "Every systemd service is active"
+
+- name: Retrieve the Forgejo systemd services log for debugging
+  when: forgejo_debug_service_enabled | bool
+  ansible.builtin.command:
+    cmd: "journalctl --no-pager --output=cat --unit={{ item }}"
+  changed_when: false
+  loop: "{{ forgejo_verify_units }}"
+
+# An unconfigured Forgejo serves nothing but its installation wizard: every
+# path renders the install form and the API is not routed at all. This
+# endpoint answering with 200 is therefore what tells an installed Forgejo
+# apart from a merely running binary.
+- name: Wait for the Forgejo API to report its version (up to 10m)
+  ansible.builtin.uri:
+    url: "http://localhost:3000/api/v1/version"
+    method: GET
+    return_content: true
+  register: forgejo_api_version
+  until: forgejo_api_version.status == 200
+  retries: 120
+  delay: 5
+
+# The reported version carries an upstream suffix (`16.0.3+gitea-1.22.0`).
+- name: Assert the running Forgejo is the version this role installs
+  ansible.builtin.assert:
+    that: forgejo_api_version.json.version.split('+') | first == forgejo_defaults.forgejo_version
+    fail_msg: "Forgejo reports {{ forgejo_api_version.json.version }}, expected {{ forgejo_defaults.forgejo_version }}"
+    success_msg: "Forgejo reports {{ forgejo_api_version.json.version }}"
+
+# Forgejo pings its data-stores on demand here, so this exercises the
+# database and the cache adapter that the scenario wired up, rather than
+# just the fact that the container came up.
+- name: Wait for Forgejo to report itself healthy (up to 180s)
+  ansible.builtin.uri:
+    url: "http://localhost:3000/api/healthz"
+    method: GET
+    return_content: true
+  register: forgejo_health
+  until: forgejo_health.status == 200 and forgejo_health.json.status == 'pass'
+  retries: 36
+  delay: 5
+  # So that giving up is reported by the assertion below rather than as a
+  # wall of systemd unit properties.
+  failed_when: false
+
+- name: Assert Forgejo reports itself and its data-stores as healthy
+  ansible.builtin.assert:
+    that:
+      - forgejo_health.json.status == 'pass'
+      - forgejo_health.json.checks['database:ping'] | map(attribute='status') | unique | list == ['pass']
+      - forgejo_health.json.checks['cache:ping'] | map(attribute='status') | unique | list == ['pass']
+    fail_msg: "Forgejo did not report itself healthy: {{ forgejo_health.json | default('no response') }}"
+    success_msg: "Forgejo reports itself, its database and its cache healthy"
+
+- name: Retrieve the Forgejo web interface
+  ansible.builtin.uri:
+    url: "http://localhost:3000/"
+    method: GET
+    status_code: [200]
+    return_content: true
+  register: forgejo_endpoint
+
+- name: Assert the Forgejo web interface is served
+  ansible.builtin.assert:
+    that: "'Forgejo' in forgejo_endpoint.content"
+    fail_msg: "The Forgejo web interface did not render as expected"
+    success_msg: "The Forgejo web interface is served"
+
+- name: Verify nothing was quietly restarting while all of that was being checked
+  when: "forgejo_restarts_check_enabled | bool"
+  block:
+    # `Restart=always` means the unit reads `active` while it is crash-looping,
+    # so `active` on its own says very little. The window has to be watched with
+    # everything already answering.
+    - name: Sample the restart counters
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+      register: forgejo_restarts_before
+      loop: "{{ forgejo_verify_units }}"
+
+    # Comfortably longer than the unit's `RestartSec=30`, so a crash loop has to
+    # tick at least once inside the window.
+    - name: Watch the services for 45 seconds
+      ansible.builtin.pause:
+        seconds: 45
+
+    - name: Sample the restart counters again
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+      register: forgejo_restarts_after
+      loop: "{{ forgejo_verify_units }}"
+
+    - name: Assert no service restarted while it was up
+      ansible.builtin.assert:
+        that:
+          - forgejo_restarts_after.results | map(attribute='status.NRestarts') | list == forgejo_restarts_before.results | map(attribute='status.NRestarts') | list
+          - forgejo_restarts_after.results | map(attribute='status.ActiveState') | unique | list == ['active']
+        fail_msg: >-
+          A service restarted while it was supposedly up, so `active` was hiding a crash loop.
+          Before:
+          {% for unit, restarts in forgejo_verify_units | zip(forgejo_restarts_before.results | map(attribute='status.NRestarts')) %}{{ restarts }} ({{ unit }}){% if not loop.last %}, {% endif %}{% endfor %},
+          after:
+          {% for unit, restarts in forgejo_verify_units | zip(forgejo_restarts_after.results | map(attribute='status.NRestarts')) %}{{ restarts }} ({{ unit }}){% if not loop.last %}, {% endif %}{% endfor %}
+        success_msg: >-
+          None of the services restarted over 45 seconds of watching (restarts so far:
+          {% for unit, restarts in forgejo_verify_units | zip(forgejo_restarts_after.results | map(attribute='status.NRestarts')) %}{{ restarts }} ({{ unit }}){% if not loop.last %}, {% endif %}{% endfor %})
+
+- name: Show the Forgejo verification summary
+  ansible.builtin.debug:
+    msg:
+      - "Forgejo systemd: {% for unit, state in forgejo_verify_units | zip(forgejo_services.results | map(attribute='status.ActiveState')) %}{{ unit }} ({{ state }}){% if not loop.last %}, {% endif %}{% endfor %}"
+      - "Forgejo restarts: {% for unit, restarts in forgejo_verify_units | zip(forgejo_restarts_after.results | map(attribute='status.NRestarts')) %}{{ restarts }} ({{ unit }}){% if not loop.last %}, {% endif %}{% endfor %}"
+      - "Forgejo version: {{ forgejo_api_version.json.version }}"
+      - "Forgejo health: {{ forgejo_health.json.checks }}"
+      - "Forgejo web interface: {{ forgejo_endpoint.status }}"

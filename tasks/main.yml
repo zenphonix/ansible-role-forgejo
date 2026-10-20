@@ -33,6 +33,7 @@
     - forgejo_oidc_client_enabled | bool or forgejo_oidc_provider_name | string | length > 0
   tags:
     - configure-oauth-forgejo
+    - molecule-notest
   block:
     - name: Configure OAuth2 provider for Forgejo
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/configure_oauth.yml"
