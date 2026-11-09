@@ -16,8 +16,8 @@ forgejo_identifier: forgejo
 forgejo_base_path: "/{{ forgejo_identifier }}"
 forgejo_data_path: "{{ forgejo_base_path }}/data"
 
-# renovate: datasource=docker depName=codeberg.org/forgejo/forgejo versioning=semver
-forgejo_version: 17.0.0
+# renovate: datasource=docker depName=data.forgejo.org/forgejo/forgejo versioning=semver
+forgejo_version: 17.0.1
 
 forgejo_uid: ""
 forgejo_gid: ""
@@ -35,7 +35,7 @@ forgejo_container_image: "{{ forgejo_container_image_registry_prefix }}forgejo/f
 forgejo_container_image_tag: "{{ forgejo_version }}-rootless"
 forgejo_container_image_registry_prefix: "{{ forgejo_container_image_registry_prefix_upstream }}"
 forgejo_container_image_registry_prefix_upstream: "{{ forgejo_container_image_registry_prefix_upstream_default }}"
-forgejo_container_image_registry_prefix_upstream_default: codeberg.org/
+forgejo_container_image_registry_prefix_upstream_default: data.forgejo.org/
 
 forgejo_container_image_self_build: false
 forgejo_container_image_self_build_name: "forgejo/forgejo:{{ forgejo_container_image_self_build_repo_version }}"
@@ -327,7 +327,7 @@ forgejo_config_cache_host: |
 
 # Specify a database driver to use
 # Valid values: mysql, postgres, sqlite
-forgejo_database_type: sqlite
+forgejo_database_type: ""
 
 # Specify database configuration
 forgejo_database_mysql_hostname: ""

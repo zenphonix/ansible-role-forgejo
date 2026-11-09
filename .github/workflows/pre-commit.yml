@@ -38,7 +38,8 @@ jobs:
 
       - name: Run prek hooks
         run: |
-          # The checkout action sets safe.directory using its own bundled
-          # git, which is separate from the pacman-installed git that prek uses.
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # The workspace is owned by the runner user, not the container's root.
+          # A safe.directory entry isn't enough: some hooks (betterleaks) run git
+          # with global/system config disabled. Take ownership instead.
+          chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
           just prek-run-on-all

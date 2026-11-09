@@ -57,8 +57,8 @@ provisioner:
 
         # Variables required for Forgejo to connect to the MariaDB database (via Unix socket)
         forgejo_database_type: mysql
-        forgejo_database_mysql_username: my_database_username
-        forgejo_database_mysql_password: my_database_password
+        forgejo_database_mysql_username: /#@my_database_username?%
+        forgejo_database_mysql_password: /#@my_database_password?%
         forgejo_database_name: forgejo
         forgejo_database_mysql_socket_enabled: true
         forgejo_database_mysql_socket_path_host: "{{ mariadb_run_path }}"

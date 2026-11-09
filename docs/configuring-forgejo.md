@@ -34,7 +34,7 @@ See the project's [documentation](https://forgejo.org/docs/latest/) to learn wha
 
 ## Prerequisites
 
-To run a Forgejo instance it is necessary to prepare a database. You can use a [MySQL](https://www.mysql.com/) compatible database server, [Postgres](https://www.postgresql.org/), or [SQLite](https://www.sqlite.org/). By default it is configured to use SQLite.
+To run a Forgejo instance it is necessary to prepare a database. You can use a [MySQL](https://www.mysql.com/) compatible database server, [Postgres](https://www.postgresql.org/), or [SQLite](https://www.sqlite.org/).
 
 If you are looking for Ansible roles for a MySQL compatible server or Postgres, you can check out [ansible-role-mariadb](https://github.com/mother-of-all-self-hosting/ansible-role-mariadb) and [ansible-role-postgres](https://github.com/mother-of-all-self-hosting/ansible-role-postgres), both of which are maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
 
@@ -72,9 +72,9 @@ After adjusting the hostname, make sure to adjust your DNS records to point the 
 
 ### Configuring database
 
-#### Specify database (optional)
+#### Specify database
 
-You can specify a database used by Forgejo. By default it is configured to use SQLite. The SQLite database is stored in the directory specified with `forgejo_data_path`.
+Forgejo can use either a MySQL compatible database, Postgres, or SQLite, and you need to choose one.
 
 To use Postgres, add the following configuration to your `vars.yml` file:
 
@@ -82,9 +82,12 @@ To use Postgres, add the following configuration to your `vars.yml` file:
 forgejo_database_type: postgres
 ```
 
-Set `mysql` to use a MySQL compatible database.
+Set `mysql` to use a MySQL compatible database and `sqlite` to use SQLite, respectively. The SQLite database is stored in the directory specified with `forgejo_data_path`.
 
 For other settings, check variables such as `forgejo_database_*` on [`defaults/main.yml`](../defaults/main.yml).
+
+>[!NOTE]
+> If you (or your playbook) have not specified a MySQL compatible database or Postgres explicitly, the database for your existing installation is most likely to be `sqlite`.
 
 #### Configuring connection to the database server (optional)
 
@@ -158,7 +161,7 @@ Note that the role is configured to establish connection with the Memcached inst
 
 Refer to [this section](https://forgejo.org/docs/latest/admin/config-cheat-sheet/#cache-cache) on the official documentation for details.
 
-If you are looking for an Ansible role for [Memcached](https://memcached.org), you can check out [ansible-role-memcache](https://radicle.network/nodes/iris.radicle.network/rad%3Az2arPcue4GZ6G6FY3gZexsJXqHyDs) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
+If you are looking for an Ansible role for [Memcached](https://memcached.org), you can check out [ansible-role-memcache](https://radicle.network/nodes/progressiv.radicle.garden/rad%3Az2arPcue4GZ6G6FY3gZexsJXqHyDs) maintained by the [Mother-of-All-Self-Hosting (MASH)](https://github.com/mother-of-all-self-hosting) team.
 
 ### Configuring issue indexer (optional)
 
@@ -235,9 +238,7 @@ forgejo_config_security_reverse_proxy_trusted_proxies:
 
 ### Integrating with Prometheus (optional)
 
-Forgejo can natively expose metrics to Prometheus.
-
-If you are looking for an integration, you can check out the MASH playbook. Refer to [this section of the documentation on the playbook](https://github.com/mother-of-all-self-hosting/mash-playbook/blob/main/docs/services/forgejo.md#integrating-with-prometheus-optional) for more information.
+Forgejo can natively expose metrics to Prometheus. If you are looking for an integration, you can check out the MASH Ansible playbook. Please refer to the service's documentation over there for more information.
 
 ### Extending the configuration
 
